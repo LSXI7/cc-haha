@@ -255,6 +255,7 @@ describe('Sidebar', () => {
     ])
     expect(useTabStore.getState().activeTabId).toBe('session-new-1')
     expect(screen.getByRole('complementary')).not.toHaveAttribute('data-desktop-drag-region')
+    expect(screen.getByTestId('sidebar-title-region')).toHaveAttribute('data-desktop-drag-region')
   })
 
   it('groups sessions by project and expands overflow rows', () => {
