@@ -7,7 +7,7 @@
  */
 
 import type { ServerWebSocket } from 'bun'
-import type { ClientMessage, ServerMessage, StreamingFallbackCause } from './events.js'
+import type { ClientMessage, ServerMessage, StreamingFallbackCause, TokenUsage } from './events.js'
 import * as os from 'node:os'
 import {
   ConversationStartupError,
@@ -130,6 +130,25 @@ async function sendRepositoryStartupStatus(
 
 export function getSlashCommands(sessionId: string): SessionSlashCommand[] {
   return sessionSlashCommands.get(sessionId) || []
+}
+
+function usageNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function translateCliUsage(usage: unknown): TokenUsage {
+  const record = usage && typeof usage === 'object'
+    ? usage as Record<string, unknown>
+    : {}
+  const cacheReadTokens = usageNumber(record.cache_read_input_tokens ?? record.cache_read_tokens)
+  const cacheCreationTokens = usageNumber(record.cache_creation_input_tokens ?? record.cache_creation_tokens)
+
+  return {
+    input_tokens: usageNumber(record.input_tokens),
+    output_tokens: usageNumber(record.output_tokens),
+    ...(cacheReadTokens > 0 ? { cache_read_tokens: cacheReadTokens } : {}),
+    ...(cacheCreationTokens > 0 ? { cache_creation_tokens: cacheCreationTokens } : {}),
+  }
 }
 
 export type WebSocketData = {
@@ -1691,10 +1710,7 @@ export function translateCliMessage(cliMsg: any, sessionId: string): ServerMessa
 
     case 'result': {
       // 对话结果（成功或错误）
-      const usage = {
-        input_tokens: cliMsg.usage?.input_tokens || 0,
-        output_tokens: cliMsg.usage?.output_tokens || 0,
-      }
+      const usage = translateCliUsage(cliMsg.usage)
 
       if (cliMsg.is_error) {
         // If the user requested stop, this "error" is just the interrupt

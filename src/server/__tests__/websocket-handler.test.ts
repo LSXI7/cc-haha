@@ -9,6 +9,7 @@ import {
   closeSessionConnection,
   getActiveSessionIds,
   handleWebSocket,
+  translateCliMessage,
   type WebSocketData,
 } from '../ws/handler.js'
 import {
@@ -36,6 +37,38 @@ function makeClientSocket(sessionId: string) {
     sent,
   } as unknown as ServerWebSocket<WebSocketData> & { sent: string[] }
 }
+
+describe('translateCliMessage usage mapping', () => {
+  afterEach(() => {
+    __resetWebSocketHandlerStateForTests()
+    mock.restore()
+  })
+
+  it('keeps cache token counts on result completion events', () => {
+    const sessionId = `usage-${crypto.randomUUID()}`
+
+    const messages = translateCliMessage({
+      type: 'result',
+      subtype: 'success',
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_input_tokens: 3456,
+        cache_creation_input_tokens: 789,
+      },
+    }, sessionId)
+
+    expect(messages).toEqual([{
+      type: 'message_complete',
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 3456,
+        cache_creation_tokens: 789,
+      },
+    }])
+  })
+})
 
 describe('WebSocket handler session isolation', () => {
   afterEach(() => {
